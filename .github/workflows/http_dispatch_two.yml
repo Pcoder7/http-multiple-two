@@ -5,14 +5,14 @@ on:
 
 
 permissions:
-  contents: write   # For creating matrix.json, artifacts, and potentially committing aggregated results
-  actions: write    # For triggering workflows in Account 2's repository
+  contents: write   
+  actions: write    
 
 env:
   LINES_PER_CHUNK: 30
-  DISTRIBUTION_THRESHOLD: 21    # <-- LINKED VARIABLE
-  PRIMARY_PERCENTAGE: 45        # <-- LINKED VARIABLE
-  SECONDARY_PERCENTAGE: 40      # <-- LINKED VARIABLE
+  DISTRIBUTION_THRESHOLD: 21    
+  PRIMARY_PERCENTAGE: 45       
+  SECONDARY_PERCENTAGE: 40      
 
   # --- Account 2 Details ---
   ACCOUNT2_REPO_OWNER: ${{ secrets.ACCOUNT2_REPO_OWNER || 'pushrockzz' }}
