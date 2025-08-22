@@ -133,44 +133,28 @@ jobs:
         id: build_full_matrix
         shell: bash
         run: |
-          # --- Start of Script ---
-          ARTIFACTS_DIR="downloaded-artifacts"
-          COMBINED_TARGET_FILE="subdomains.txt" 
-
-          echo "INFO: Preparing input from downloaded artifacts..."
-          if [ ! -d "$ARTIFACTS_DIR" ] || [ -z "$(ls -A $ARTIFACTS_DIR)" ]; then
-             echo "WARNING: Artifacts directory '$ARTIFACTS_DIR' is missing or empty..."
-          else
-             echo "INFO: Finding all 'subdomains_ports.txt' files and combining them into '$COMBINED_TARGET_FILE'..."
-             find "$ARTIFACTS_DIR" -type f -name "subdomains_ports.txt" -exec cat {} + > "$COMBINED_TARGET_FILE"
-
-          fi
-           echo "--- Pre-processing complete. Starting original script logic. ---"
+          # The block that handled 'ARTIFACTS_DIR' has been removed.
+          # The script now starts with your original logic.
 
           JSON_MATRIX='[]' # Initialize as an empty JSON array string
           echo "INFO: Initializing JSON_MATRIX as: '$JSON_MATRIX'"
-
           echo "INFO: Locating 'subdomains.txt' files..."
           find . -type f -name "subdomains.txt" -print0 > found_files.tmp
-
           declare -a files=() # Explicitly declare as an array
           while IFS= read -r -d $'\0' file_path_from_find; do
             standardized_file_path=$(echo "$file_path_from_find" | sed 's|^\./||')
             files+=("$standardized_file_path")
           done < found_files.tmp
           rm found_files.tmp # Clean up temporary file
-
           if [ "${#files[@]}" -eq 0 ]; then
             echo "WARNING: No 'subdomains.txt' files found in the repository."
             echo "INFO: JSON_MATRIX will remain '[]'. No chunks will be generated."
           else
             echo "INFO: Found ${#files[@]} 'subdomains.txt' file(s):"
             printf "  => '%s'\n" "${files[@]}" # Print each found file for clarity
-
             for file_path in "${files[@]}"; do
               echo "-----------------------------------------------------"
               echo "INFO: Processing file: '$file_path'"
-
               domain_dir=$(dirname "$file_path")
               if [ "$domain_dir" == "." ]; then
                 domain=$(basename "$file_path" .txt)
@@ -178,7 +162,6 @@ jobs:
                 domain=$(basename "$domain_dir")
               fi
               echo "INFO: Deduced domain: '$domain'"
-
               if [ ! -f "$file_path" ]; then
                 echo "ERROR: File '$file_path' reported by find, but not found now. Skipping."
                 continue
@@ -187,10 +170,8 @@ jobs:
                 echo "WARNING: File '$file_path' is empty. Skipping splitting for this file."
                 continue
               fi
-
               echo "INFO: Creating chunk directory 'chunks/$domain' if it doesn't exist."
               mkdir -p "chunks/$domain"
-
               output_chunk_prefix="chunks/$domain/chunk_"
               echo "INFO: Splitting '$file_path' into chunks in 'chunks/$domain/' with prefix '$output_chunk_prefix' (max $LINES_PER_CHUNK lines/chunk)"
               
@@ -204,7 +185,6 @@ jobs:
               CHUNK_COUNT_FOR_THIS_FILE=0
               while IFS= read -r chunk_file_path; do
                 if [ -z "$chunk_file_path" ]; then continue; fi
-
                 echo "DEBUG: Processing chunk_file_path: '$chunk_file_path' for domain '$domain'"
                 echo "DEBUG: Current JSON_MATRIX before jq (first 100 chars): $(echo "$JSON_MATRIX" | head -c 100)"
                 echo "DEBUG: Validating current JSON_MATRIX with jq -e:"
@@ -230,7 +210,6 @@ jobs:
                 echo "DEBUG: jq command to be run: printf '%s' \"\$JSON_MATRIX\" | jq -c --arg d \"$domain\" --arg c \"$chunk_file_path\" '. + [{domain:\$d,chunk:\$c}]'"
                 TEMP_JSON_MATRIX=$(printf '%s' "$JSON_MATRIX" | jq -c --arg d "$domain" --arg c "$chunk_file_path" '. + [{domain:$d,chunk:$c}]')
                 jq_exit_code=$?
-
                 if [ $jq_exit_code -ne 0 ]; then
                   echo "ERROR: jq command failed (exit code $jq_exit_code) when trying to add chunk '$chunk_file_path' for domain '$domain'."
                   echo "ERROR: Input JSON_MATRIX was (first 100 chars): $(echo "$JSON_MATRIX" | head -c 100)"
@@ -260,12 +239,10 @@ jobs:
                       continue 
                   fi
                 fi
-
                 JSON_MATRIX="$TEMP_JSON_MATRIX"
                 CHUNK_COUNT_FOR_THIS_FILE=$((CHUNK_COUNT_FOR_THIS_FILE + 1))
                 echo "DEBUG: Successfully added/updated for chunk '$chunk_file_path'. JSON_MATRIX (first 100 chars): $(echo "$JSON_MATRIX" | head -c 100)"
               done < <(find "chunks/$domain/" -name 'chunk_*' -type f -print)
-
               if [ "$CHUNK_COUNT_FOR_THIS_FILE" -eq 0 ]; then
                 echo "WARNING: No chunk files were processed/added to matrix for '$file_path' in domain '$domain'. 'split' might have created no files, or 'jq' failed for all."
               else
@@ -273,7 +250,6 @@ jobs:
               fi
             done
           fi
-
           echo "-----------------------------------------------------"
           if ! echo "$JSON_MATRIX" | jq -e . > /dev/null 2>&1; then
             echo "ERROR: Final JSON_MATRIX is not valid JSON. Content (first 200 chars): $(echo "$JSON_MATRIX" | head -c 200)"
@@ -283,13 +259,10 @@ jobs:
           else
             TOTAL_CHUNKS=$(echo "$JSON_MATRIX" | jq 'length')
           fi
-
           echo "FINAL_BUILD_INFO: Final JSON_MATRIX content (first 200 chars): $(echo "$JSON_MATRIX" | head -c 200)"
           echo "FINAL_BUILD_INFO: Total chunks in matrix: $TOTAL_CHUNKS"
-
           echo "INFO: Writing the final matrix to 'full_matrix.json' file..."
           echo "$JSON_MATRIX" > full_matrix.json
-
           if [ -f full_matrix.json ]; then
             echo "VERIFY: 'full_matrix.json' created. Size: $(wc -c < full_matrix.json) bytes."
             echo "VERIFY: Content preview of 'full_matrix.json' (first 200 chars): $(head -c 200 full_matrix.json)"
@@ -303,9 +276,8 @@ jobs:
             echo "INFO: Forcing 'full_matrix.json' to be '[]' as a fallback to prevent tar error."
             echo "[]" > full_matrix.json
           fi
-
           echo "full_matrix=$JSON_MATRIX" >> $GITHUB_OUTPUT
-          echo "total_chunks=$TOTAL_CHUNKS" >> $GITHUB_OUTPUT                 
+          echo "total_chunks=$TOTAL_CHUNKS" >> $GITHUB_OUTPUT      
 
       - name: Package All Chunks and Resolvers      
         id: package_chunks # This ID is referenced by outputs and later steps
