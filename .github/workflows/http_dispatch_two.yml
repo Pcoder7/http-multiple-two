@@ -1,8 +1,14 @@
 name: Distributed httprobe Two
 
 on:
-  workflow_dispatch: {}
-
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'The run_id of the workflow that triggered this.'
+        required: true
+      results_repo:
+        description: 'The repository (owner/repo) of the triggering workflow.'
+        required: true
 
 permissions:
   contents: write   
@@ -83,9 +89,8 @@ jobs:
         with:
 
           github-token: ${{ secrets.PAT_TOKEN }}
-          # This tells the action to get artifacts from the specific workflow run that triggered this one.
-          run-id: ${{ github.event.client_payload.run_id  }}
-          repository:  ${{ github.event.client_payload.results_repo }}
+          run-id: ${{ github.event.inputs.run_id }}
+          repository: ${{ github.event.inputs.results_repo }}
           pattern: puredns-final-sorted-*
           path: downloaded-artifacts
 
