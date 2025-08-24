@@ -87,8 +87,8 @@ jobs:
       - name: Checkout Store Repo to Find Inputs
         uses: actions/checkout@v4
         with:
-          repository: ${{ env.STORE_OWNER }}/${{ env.STORE_REPO_NAME }}
-          token: ${{ env.STORE_TOKEN }}
+          repository: ${{ secrets.STORE_OWNER }}/${{ secrets.STORE }}
+          token: ${{ secrets.PAT_FOR_SECONDARY }}
           fetch-depth: 0
      
       - name: Mark Directory as Safe
