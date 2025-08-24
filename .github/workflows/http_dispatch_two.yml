@@ -83,6 +83,13 @@ jobs:
             split --version || echo "DEBUG: Could not get split version."
           fi
           echo "-----------------------------------------------------"
+      
+      - name: Checkout Store Repo to Find Inputs
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.STORE_OWNER }}/${{ env.STORE_REPO_NAME }}
+          token: ${{ env.STORE_TOKEN }}
+          fetch-depth: 0
      
       - name: Mark Directory as Safe
         shell: bash
