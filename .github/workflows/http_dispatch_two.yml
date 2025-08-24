@@ -83,16 +83,23 @@ jobs:
             split --version || echo "DEBUG: Could not get split version."
           fi
           echo "-----------------------------------------------------"
-
+     
+      - name: Mark Directory as Safe
+        shell: bash
+        run: |
+          # This command tells Git to trust the current repository directory,
+          # resolving the "dubious ownership" error.
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          
       - name: Extract Latest puredns-permut Entries
         id: extract_entries
         shell: bash
         run: |
+          
           # The Correlation ID is the unique run_id from the puredns-permut workflow
-      
           CORRELATION_ID="${{ github.event.inputs.run_id }}"
           
-           FULL_PATTERN="feat: Add new assets from distributed permutation scan from Correlation ID: ${CORRELATION_ID}"
+          FULL_PATTERN="feat: Add new assets from distributed permutation scan from Correlation ID: ${CORRELATION_ID}"
           TARGET_PATHSPEC="results/*/puredns_result.txt"
 
           echo "-> Searching for commits with the exact pattern: '$FULL_PATTERN'"
