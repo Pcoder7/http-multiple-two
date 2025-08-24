@@ -634,79 +634,65 @@ jobs:
   merge_results:
     name: Merge All httpx Results
     runs-on: ubuntu-latest
-    # This job needs to run only after all the parallel 'resolve' jobs are complete.
     needs: resolve_primary_account_chunks
-    # 'if: always()' ensures this job runs even if some of the parallel jobs failed,
-    # so you can collect results from the successful ones.
     if: always()
+    # THIS 'outputs' BLOCK IS THE KEY ADDITION.
+    # It makes the decision of this job available to the next jobs.
+    outputs:
+      has_results: ${{ steps.check_artifacts.outputs.found }}
     steps:
       - name: Download all result artifacts into separate directories
         uses: actions/download-artifact@v4
         with:
-          # This pattern still correctly matches all artifacts
           pattern: primary_httpx_dsieve_*
-          # By NOT using 'merge-multiple', each artifact is downloaded into its own named sub-directory.
-          # This prevents any files from overwriting each other and is the key to preventing data loss.
           path: temp-artifacts/
 
+      - name: Check if artifacts were downloaded
+        # This step has an 'id' so we can reference its output.
+        id: check_artifacts
+        shell: bash
+        run: |
+          if [ -d "temp-artifacts" ] && [ -n "$(ls -A temp-artifacts)" ]; then
+            echo "-> Artifacts found. Proceeding with merge."
+            echo "found=true" >> $GITHUB_OUTPUT
+          else
+            echo "-> No artifacts found to merge. Skipping the rest of this job."
+            echo "found=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: DEBUG - Show Downloaded Artifact Structure
-        if: always()
+        # This step only runs if artifacts were found.
+        if: steps.check_artifacts.outputs.found == 'true'
         run: |
           echo "Listing downloaded artifacts structure in 'temp-artifacts':"
-          # This will now show a directory for each downloaded artifact, preventing data loss.
           ls -R temp-artifacts/
           
       - name: Consolidate, Merge, and Deduplicate Results
         id: consolidate
+        # This step only runs if artifacts were found.
+        if: steps.check_artifacts.outputs.found == 'true'
         shell: bash
         run: |
           # Directory for the final, clean output
           FINAL_RESULTS_DIR="final-merged-results"
           mkdir -p "$FINAL_RESULTS_DIR"
-
           # Parent directory where download-artifact placed all the individual artifact folders
           SOURCE_ARTIFACTS_DIR="temp-artifacts"
-
           # Check if any artifacts were downloaded
           if [ ! -d "$SOURCE_ARTIFACTS_DIR" ] || [ -z "$(ls -A $SOURCE_ARTIFACTS_DIR)" ]; then
             echo "No artifacts were downloaded. Nothing to merge."
             echo "artifact_created=false" >> $GITHUB_OUTPUT
             exit 0
           fi
-
           echo "-> Finding all result files across all downloaded artifacts..."
-
-          # This 'find' command is the core of the aggregation.
-          # It searches through all the downloaded artifact sub-directories for any file named 'httpx_result.txt'.
+          # ... (rest of your script is unchanged)
           find "$SOURCE_ARTIFACTS_DIR" -type f -name "httpx_result.txt" | while read -r filepath; do
-            # --- HOW DATA IS SEPARATED BY DOMAIN (This is the key logic) ---
-            # 1. The original 'filepath' will look something like this:
-            #    'temp-artifacts/primary_httpx_dsieve_bmw.com_..._chunk_027/results/bmw.com/httpx_result.txt'
-            #
-            # 2. 'dirname "$filepath"' gets the full directory path:
-            #    'temp-artifacts/primary_httpx_dsieve_bmw.com_..._chunk_027/results/bmw.com'
-            #
-            # 3. 'basename' on that result extracts just the last component, which is the parent domain name:
-            #    'bmw.com'
             parent_domain=$(basename "$(dirname "$filepath")")
-
-            # Create a directory for this domain in our final output if it doesn't exist
             mkdir -p "$FINAL_RESULTS_DIR/$parent_domain"
-
-            # Append (>>) the content of the current result file to the master result file for that domain.
-            # The '>>' operator is crucial as it adds to the file, rather than overwriting it ('_').
-            # This ensures that results from chunk_001, chunk_002, etc., for 'bmw.com' all end up in the same final file.
             cat "$filepath" >> "$FINAL_RESULTS_DIR/$parent_domain/httpx_result.txt"
           done
-
           echo "-> Aggregation complete. Now deduplicating all merged files..."
-
-          # After all files have been aggregated, this command finds every final results file
-          # and runs 'sort -u' on it. This removes any duplicate lines that might have
-          # occurred across different chunks, ensuring a clean and correct final output.
-          
           find "$FINAL_RESULTS_DIR" -type f -name "*.txt" -print -exec sort -u -o {} {} \;
-
           echo "-> Final results have been merged and deduplicated without data loss."
           echo "Final results structure:"
           ls -R "$FINAL_RESULTS_DIR"
@@ -714,6 +700,7 @@ jobs:
           echo "artifact_created=true" >> $GITHUB_OUTPUT
 
       - name: Upload Final Merged Artifact
+        # This step only runs if the 'consolidate' step ran and was successful.
         if: steps.consolidate.outputs.artifact_created == 'true'
         uses: actions/upload-artifact@v4
         with:
@@ -725,7 +712,7 @@ jobs:
     name: Create Commit in store-recon
     runs-on: ubuntu-latest
     needs: merge_results
-
+    if: needs.merge_results.outputs.has_results == 'true'
     steps:
       - name: Download Merged Results Artifact
         uses: actions/download-artifact@v4
@@ -836,9 +823,9 @@ jobs:
  
   trigger_nuc_vuln_two:
     name: Trigger Nuc Vuln Two
-    needs: [create_commit]
+    needs: [merge_results, create_commit]
     
-    if: success() 
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Trigger next workflow
