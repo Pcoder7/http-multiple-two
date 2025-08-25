@@ -636,8 +636,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: resolve_primary_account_chunks
     if: always()
-    # THIS 'outputs' BLOCK IS THE KEY ADDITION.
-    # It makes the decision of this job available to the next jobs.
     outputs:
       has_results: ${{ steps.check_artifacts.outputs.found }}
     steps:
@@ -712,7 +710,7 @@ jobs:
     name: Create Commit in store-recon
     runs-on: ubuntu-latest
     needs: merge_results
-    if: needs.merge_results.outputs.has_results == 'true'
+    if: always() && needs.merge_results.outputs.has_results == 'true'
     steps:
       - name: Download Merged Results Artifact
         uses: actions/download-artifact@v4
